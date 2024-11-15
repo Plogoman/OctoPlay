@@ -171,7 +171,18 @@ void Chip8::Tick() {
 					ProgramCounter += 2;
 					break;
 				}
+				//8XY4 Assign vX += vY with Carry
+				case 0x4: {
+					if (Register[(OperationCode & 0x00F0) >> 4] > (0xFF - Register[(OperationCode & 0x0F00) >> 8])) {
+						Register[0xF] = 1;
+					} else {
+						Register[0xF] = 0;
+					}
 
+					Register[(OperationCode & 0x0F00) >> 8] += Register[(OperationCode & 0x00F0) >> 4];
+					ProgramCounter += 2;
+					break;
+				}
 			}
 		}
 		case 0x9000: {
