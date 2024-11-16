@@ -360,8 +360,53 @@ void Chip8::Tick() {
 					ProgramCounter += 2;
 					break;
 				}
+				//FX33 Set Index, Index + 1, Index + 2 = BCD(vX)
+				case 0x0033: {
+					Memory[IndexRegister] = Register[(OperationCode & 0x0F00) >> 8] / 100;
+					Memory[IndexRegister + 1] = (Register[(OperationCode & 0x0F00) >> 8] / 10) % 10;
+					Memory[IndexRegister + 2] = (Register[(OperationCode & 0x0F00) >> 8] % 10) % 10;
+
+					ProgramCounter += 2;
+					break;
+				}
+				//FX55 Store Registers in Memory
+				case 0x0055: {
+					for (int i = 0; i <= ((OperationCode & 0x0F00) >> 8); ++i) {
+						Memory[IndexRegister + i] = Register[i];
+					}
+
+					IndexRegister += ((OperationCode & 0x0F00) >> 8) + 1;
+					ProgramCounter += 2;
+					break;
+				}
+				//FX65 Load Registers in Memory
+				case 0x0065: {
+					for (int i = 0; i < ((OperationCode & 0x0F00) >> 8); ++i) {
+						Register[i] = Memory[IndexRegister + i];
+					}
+
+					IndexRegister += ((OperationCode & 0x0F00) >> 8) + 1;
+					ProgramCounter += 2;
+					break;
+				}
+
+				default: {
+					Invalid = true;
+					ProgramCounter += 2;
+					break;
+				}
 			}
+			break;
 		}
+
+		default: {
+			Invalid = true;
+			ProgramCounter += 2;
+			break;
+		}
+	}
+	if (Invalid) {
+		std::cerr << "Invalid Code: " << OperationCode << std::endl;
 	}
 }
 void Chip8::TickTimer() {
