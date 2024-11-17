@@ -51,5 +51,15 @@ i32 main(i32 args, char **argv) {
 
 	GLubyte DisplayPixels[64 * 32 * 3];
 
+	for (int x = 0; x < 2048; ++x) {
+		DisplayPixels[x * 3] = 255;
+		DisplayPixels[x * 3 + 1] = 255;
+		DisplayPixels[x * 3 + 2] = 255;
+	}
+
+	GLuint DisplayTexture;
+	glGenTextures(1, &DisplayTexture);
+	glBindTexture()
+
     return 0;
 }

@@ -44,10 +44,10 @@ class GUI {
 
 		constexpr void RenderDisplay(float);
 		constexpr void RenderGeneral(float);
-		constexpr void RenderCPUState();
-		constexpr void RenderDebug();
-		constexpr void RenderKeyState();
-		constexpr void RenderStack();
+		//constexpr void RenderCPUState();
+		//constexpr void RenderDebug();
+		//constexpr void RenderKeyState();
+		//constexpr void RenderStack();
 	public:
 		GUI(Chip8 *CoreInterpreter, GLuint DisplayTexture, GLubyte *DisplayPixels);
 		void Render();
