@@ -9,7 +9,8 @@
 using Array = std::array;
 using String = std::string;
 using InputFileStream = std::ifstream;
-using NanoTimePoint = std::chrono::time_point<std::chrono::steady_clock, std::chrono::duration<long long, std::ratio<1, 1000000000>>>;
+using NanoTimePoint = std::chrono::system_clock::time_point;
+using HighResolutionClock = std::chrono::high_resolution_clock;
 
 using i8 = int8_t;
 using i16 = int16_t;

@@ -7,6 +7,8 @@
 #include "Type.h"
 #include "Chip8.h"
 
+#define DISPLAY_SCALE 10
+
 class GUI {
 	private:
 		GLuint KeyMap[16] = {
@@ -47,7 +49,7 @@ class GUI {
 		constexpr void RenderKeyState();
 		constexpr void RenderStack();
 	public:
-		GUI(Chip8 *, GLuint, GLubyte *);
+		GUI(Chip8 *CoreInterpreter, GLuint DisplayTexture, GLubyte *DisplayPixels);
 		void Render();
 };
 
