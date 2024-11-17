@@ -15,4 +15,4 @@ add_executable(OctoPlay main.cpp
         Type.h
 )
 
-target_link_libraries(OctoPlay PRIVATE glad::glad glfw imgui::imgui)
+target_link_libraries(OctoPlay PRIVATE glad::glad glfw imgui::imgui opengl32)
