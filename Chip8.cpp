@@ -31,7 +31,7 @@ void Chip8::Reset() {
 		Stack = 0;
 	}
 
-	for (int i = 0; i < 80; ++i) {
+	for (i32 i = 0; i < 80; ++i) {
 		Memory[i] = Font[i];
 	}
 }
@@ -45,7 +45,7 @@ bool Chip8::LoadProgram(const String &File) {
 	}
 
 	char CurrentByte;
-	for (int i = 0; InputFile.get(CurrentByte); ++i) {
+	for (i32 i = 0; InputFile.get(CurrentByte); ++i) {
 		// 512 is 0x200 which increments after
 		Memory[i + 512] = CurrentByte;
 	}
@@ -76,7 +76,7 @@ void Chip8::Tick() {
 			switch (OperationCode) {
 				//0x00E0 Clear the Screen
 				case 0x00E0: {
-					for (int i = 0; i < 2048; ++i) {
+					for (i32 i = 0; i < 2048; ++i) {
 						Display[i] = false;
 					}
 					ProgramCounter += 2;
@@ -262,9 +262,9 @@ void Chip8::Tick() {
 
 			Register[0xF] = 0;
 
-			for (int YLine = 0; YLine < Height; ++YLine) {
+			for (i32 YLine = 0; YLine < Height; ++YLine) {
 				auto Pixel = Memory[IndexRegister + YLine];
-				for (int XLine = 0; XLine < 8; ++XLine) {
+				for (i32 XLine = 0; XLine < 8; ++XLine) {
 					if ((Pixel & (0x80 >> XLine)) != 0) {
 						if (Display[(x + XLine + (y + YLine) * 64)] == 1) {
 							Register[0xF] = 1;
@@ -316,7 +316,7 @@ void Chip8::Tick() {
 				case 0x000A: {
 					bool IsKeyPressed = false;
 
-					for (int i = 0; i < 16; ++i) {
+					for (i32 i = 0; i < 16; ++i) {
 						if (KeyState[i]) {
 							IsKeyPressed = true;
 							Register[(OperationCode & 0x0F00) >> 8] = i;
@@ -371,7 +371,7 @@ void Chip8::Tick() {
 				}
 				//FX55 Store Registers in Memory
 				case 0x0055: {
-					for (int i = 0; i <= ((OperationCode & 0x0F00) >> 8); ++i) {
+					for (i32 i = 0; i <= ((OperationCode & 0x0F00) >> 8); ++i) {
 						Memory[IndexRegister + i] = Register[i];
 					}
 
@@ -381,7 +381,7 @@ void Chip8::Tick() {
 				}
 				//FX65 Load Registers in Memory
 				case 0x0065: {
-					for (int i = 0; i < ((OperationCode & 0x0F00) >> 8); ++i) {
+					for (i32 i = 0; i < ((OperationCode & 0x0F00) >> 8); ++i) {
 						Register[i] = Memory[IndexRegister + i];
 					}
 

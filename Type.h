@@ -6,7 +6,9 @@
 #include <string>
 #include <chrono>
 
-using Array = std::array;
+template <typename T, std::size_t N>
+using Array = std::array<T, N>;
+
 using String = std::string;
 using InputFileStream = std::ifstream;
 using NanoTimePoint = std::chrono::system_clock::time_point;

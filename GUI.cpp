@@ -16,8 +16,7 @@ constexpr void GUI::Tick() {
 	NumberOfTicks++;
 	CoreInterpreter->Tick();
 }
-
-constexpr void GUI::RenderDisplay(float FrameRate) {
+constexpr void GUI::RenderDisplay(f32 FrameRate) {
 	ImGui::Begin("Display", NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar);
 	ImGui::SetWindowSize(ImVec2(32 + (64 * DISPLAY_SCALE), 32 + (32 * DISPLAY_SCALE)));
 
@@ -26,7 +25,7 @@ constexpr void GUI::RenderDisplay(float FrameRate) {
 		Tick();
 	}
 
-	for (int i = 0; i < (ClockSpeed / FrameRate); ++i) {
+	for (i32 i = 0; i < (ClockSpeed / FrameRate); ++i) {
 		Tick();
 	}
 
@@ -67,13 +66,27 @@ constexpr void GUI::RenderDisplay(float FrameRate) {
 	ImGui::Image(reinterpret_cast<void *>(static_cast<intptr_t>(DisplayTexture)), ImVec2(64 * DISPLAY_SCALE, 32 * DISPLAY_SCALE));
 	ImGui::End();
 }
-constexpr void GUI::RenderGeneral(float FrameRate) {
+constexpr void GUI::RenderGeneral(f32 FrameRate) {
 	ImGui::Begin("General", NULL, ImGuiWindowFlags_AlwaysAutoResize);
 
 	ImGui::TextColored(LabelColor, "FPS: ");
 	ImGui::SameLine();
 	ImGui::Text("%f", FrameRate);
 
+	ImGui::TextColored(LabelColor, "Ticks: ");
+	ImGui::SameLine();
+	ImGui::Text("%d", NumberOfTicks);
 
+	ImGui::TextColored(LabelColor, "Display Scale: ");
+	ImGui::SameLine();
+	ImGui::Text("%d", DISPLAY_SCALE);
+
+	ImGui::TextColored(LabelColor, "Clock: ");
+	ImGui::SameLine();
+	ImGui::InputInt("Hz", &ClockSpeed);
+
+	ImGui::ColorEdit3("ForeGround Color", reinterpret_cast<float *>(&ForeGroundColor));
+	ImGui::ColorEdit3("BackGround Color", reinterpret_cast<float *>(&BackGroundColor));
+
+	ImGui::End();
 }
-
