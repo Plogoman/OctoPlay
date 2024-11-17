@@ -90,3 +90,9 @@ constexpr void GUI::RenderGeneral(f32 FrameRate) {
 
 	ImGui::End();
 }
+void GUI::Render() {
+	auto FrameRate = ImGui::GetIO().Framerate;
+
+	RenderDisplay(FrameRate);
+	RenderGeneral(FrameRate);
+}
