@@ -1,57 +1,58 @@
 #include <fstream>
 #include <iostream>
+#include <random>
 
 #include "Type.h"
 #include "Chip8.h"
 
-void Chip8::Reset() {
-	//Program Counter starts at 0x200
-	ProgramCounter = 0x200;
+static std::random_device rd;
+static std::mt19937 gen(rd());
+std::uniform_int_distribution<u8> dist(0, 255);
 
-	// Reset Other State
+u8 RandomValue = dist(gen);
+
+void Chip8::Reset() {
+	ProgramCounter = 0x200;
 	IndexRegister = 0;
 	StackPointer = 0;
 	OperationCode = 0;
-
-	//Reset Timers
 	DelayTimer = 0;
 
 	// Clear Display
-	for (bool &Display : Display) {
-		Display = false;
-	}
+	std::fill(Display.begin(), Display.end(), false);
 
-	// Clear Register
-	for (u8 &Register : Register) {
-		Register = 0;
-	}
+	// Clear Registers
+	std::fill(Register.begin(), Register.end(), 0);
 
-	// Clear Stack
-	for (u16 &Stack : Stack) {
-		Stack = 0;
-	}
+	// Clear Memory
+	std::fill(Memory.begin(), Memory.end(), 0);
 
+	// Load Font
 	for (i32 i = 0; i < 80; ++i) {
-		Memory[i] = Font[i];
+		Memory[0x50 + i] = Font[i];
 	}
 }
 bool Chip8::LoadProgram(const String &File) {
-	InputFileStream InputFile;
-
-	// we have to store it as binary because the rom is in binary
-	InputFile.open(File, std::ios::binary);
-	if (!InputFile) {
+	InputFileStream InputFile(File, std::ios::binary | std::ios::ate);
+	if (!InputFile.is_open()) {
+		std::cerr << "Failed to Open File: " << File << std::endl;
 		return false;
 	}
 
-	char CurrentByte;
-	for (i32 i = 0; InputFile.get(CurrentByte); ++i) {
-		// 512 is 0x200 which increments after
-		Memory[i + 512] = CurrentByte;
+	std::streamsize size = InputFile.tellg();
+	InputFile.seekg(0, std::ios::beg);
+
+	if (size > (4096 - 512)) {
+		std::cerr << "ROM Too Large!" << std::endl;
+		return false;
+	}
+
+	if (!InputFile.read(reinterpret_cast<char*>(&Memory[0x200]), size)) {
+		std::cerr << "Failed to Read ROM Data" << std::endl;
+		return false;
 	}
 
 	InputFile.close();
-
 	return true;
 }
 void Chip8::StackPush(u16 Data) {
@@ -64,7 +65,14 @@ u16 Chip8::StackPop() {
 	return Data;
 }
 void Chip8::Tick() {
+	if (ProgramCounter >= Memory.size()) {
+		std::cerr << "Program Counter Out of Bounds: " << ProgramCounter << std::endl;
+	}
+
 	OperationCode = Memory[ProgramCounter] << 8 | Memory[ProgramCounter + 1];
+	ProgramCounter += 2;
+
+
 	bool Invalid = false;
 
 	/*
@@ -250,30 +258,29 @@ void Chip8::Tick() {
 		}
 		//CXNN Set vX to rand & NN
 		case 0xC000: {
-			Register[(OperationCode & 0x0F00) >> 8] = (rand() % 0xFF) & (OperationCode & 0x00FF);
+			Register[(OperationCode & 0x0F00) >> 8] = RandomValue & (OperationCode & 0x00FF);
 			ProgramCounter += 2;
 			break;
 		}
 		//DXYN Display X, Y, N
 		case 0xD000: {
-			auto x = Register[(OperationCode & 0x0F00) >> 8];
-			auto y = Register[(OperationCode & 0x00F0) >> 4];
-			u8 Height = OperationCode & 0x000F;
-
+			u8 x = Register[(OperationCode & 0x0F00) >> 8];
+			u8 y = Register[(OperationCode & 0x00F0) >> 4];
+			u8 height = OperationCode & 0x000F;
 			Register[0xF] = 0;
 
-			for (i32 YLine = 0; YLine < Height; ++YLine) {
-				auto Pixel = Memory[IndexRegister + YLine];
-				for (i32 XLine = 0; XLine < 8; ++XLine) {
-					if ((Pixel & (0x80 >> XLine)) != 0) {
-						if (Display[(x + XLine + (y + YLine) * 64)] == 1) {
+			for (i32 yLine = 0; yLine < height; ++yLine) {
+				u8 pixel = Memory[IndexRegister + yLine];
+				for (i32 xLine = 0; xLine < 8; ++xLine) {
+					if ((pixel & (0x80 >> xLine)) != 0) {
+						u16 index = ((x + xLine) % 64) + (((y + yLine) % 32) * 64);
+						if (Display[index]) {
 							Register[0xF] = 1;
 						}
-						Display[x + XLine + ((y + YLine) * 64)] ^= 1;
+						Display[index] ^= true;
 					}
 				}
 			}
-			ProgramCounter += 2;
 			Redraw = true;
 			break;
 		}
@@ -356,7 +363,7 @@ void Chip8::Tick() {
 				//FX29 Set IndexRegister = SpriteLocation[vX]
 				case 0x0029: {
 					//Sprites are Stored from 0x0000 to 0x0200. Each is 5 bytes
-					IndexRegister = Register[(OperationCode & 0x0F00) >> 8] * 0x5;
+					IndexRegister = 0x50 + (Register[(OperationCode & 0x0F00) >> 8] * 5);
 					ProgramCounter += 2;
 					break;
 				}
@@ -406,7 +413,7 @@ void Chip8::Tick() {
 		}
 	}
 	if (Invalid) {
-		std::cerr << "Invalid Code: " << OperationCode << std::endl;
+		std::cerr << "Invalid Opcode: 0x" << std::hex << OperationCode << std::endl;
 	}
 }
 void Chip8::TickTimer() {

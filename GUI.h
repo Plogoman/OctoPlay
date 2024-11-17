@@ -7,7 +7,7 @@
 #include "Type.h"
 #include "Chip8.h"
 
-#define DISPLAY_SCALE 10
+#define DISPLAY_SCALE 20
 
 class GUI {
 	private:
@@ -31,19 +31,21 @@ class GUI {
 		i32 NumberOfTicks = 0;
 		bool SingleStepMode = false;
 
-		i32 ClockSpeed = 960;
+		i32 ClockSpeed = 500;
 		i32 PreviousClockSpeed = ClockSpeed;
 		Chip8 *CoreInterpreter;
+
+		i32 MAX_TICKS_PER_FRAME = 20;
 
 		NanoTimePoint LastTimer;
 
 		GLuint DisplayTexture;
 		GLubyte *DisplayPixels;
 
-		constexpr void Tick(); //Avoid Overhead & Compile Time Evaluation given Constant Args
+		void Tick(); //Avoid Overhead & Compile Time Evaluation given Constant Args
 
-		constexpr void RenderDisplay(float);
-		constexpr void RenderGeneral(float);
+		void RenderDisplay(f32);
+		void RenderGeneral(f32);
 		//constexpr void RenderCPUState();
 		//constexpr void RenderDebug();
 		//constexpr void RenderKeyState();

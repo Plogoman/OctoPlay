@@ -1,12 +1,14 @@
 #include "GUI.h"
 
+#include <iostream>
+
 GUI::GUI(Chip8 *CoreInterpreter, GLuint DisplayTexture, GLubyte *DisplayPixels) {
     this->CoreInterpreter = CoreInterpreter;
 	this->DisplayTexture = DisplayTexture;
 	this->DisplayPixels = DisplayPixels;
 	LastTimer = HighResolutionClock::now();
 }
-constexpr void GUI::Tick() {
+void GUI::Tick() {
 	if (ImGui::IsWindowFocused()) {
 		for (int i = 0; i < 16; ++i) {
 			CoreInterpreter->KeyState[i] = ImGui::IsKeyDown(static_cast<ImGuiKey>(KeyMap[i]));
@@ -16,7 +18,7 @@ constexpr void GUI::Tick() {
 	NumberOfTicks++;
 	CoreInterpreter->Tick();
 }
-constexpr void GUI::RenderDisplay(f32 FrameRate) {
+void GUI::RenderDisplay(f32 FrameRate) {
 	ImGui::Begin("Display", NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar);
 	ImGui::SetWindowSize(ImVec2(32 + (64 * DISPLAY_SCALE), 32 + (32 * DISPLAY_SCALE)));
 
@@ -25,12 +27,14 @@ constexpr void GUI::RenderDisplay(f32 FrameRate) {
 		Tick();
 	}
 
-	for (i32 i = 0; i < (ClockSpeed / FrameRate); ++i) {
+	i32 TicksPerFrame = std::min(static_cast<i32>(ClockSpeed / FrameRate), MAX_TICKS_PER_FRAME);
+	for (int i = 0; i < TicksPerFrame; ++i) {
 		Tick();
 	}
 
 	auto CurrentTime = HighResolutionClock::now();
-	if ((CurrentTime - LastTimer).count() >= 16666666) {
+	auto deltaTime = std::chrono::duration_cast<std::chrono::microseconds>(CurrentTime - LastTimer);
+	if (deltaTime.count() >= (1e6 / 60)) { // Approximately every 16.67ms for 60Hz
 		CoreInterpreter->TickTimer();
 		LastTimer = CurrentTime;
 	}
@@ -59,14 +63,20 @@ constexpr void GUI::RenderDisplay(f32 FrameRate) {
 		}
 
 		glBindTexture(GL_TEXTURE_2D, DisplayTexture);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 64, 32, 0, GL_RGB, GL_UNSIGNED_BYTE, DisplayPixels);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 64, 32, GL_RGB, GL_UNSIGNED_BYTE, DisplayPixels);
 		glBindTexture(GL_TEXTURE_2D, 0);
+
+		GLenum Error = glGetError();
+		if (Error != GL_NO_ERROR) {
+			std::cerr << "OpenGL Error in RenderDisplay" << Error << std::endl;
+		}
 	}
 
 	ImGui::Image(reinterpret_cast<void *>(static_cast<intptr_t>(DisplayTexture)), ImVec2(64 * DISPLAY_SCALE, 32 * DISPLAY_SCALE));
+	ImGui::Text("RenderDisplay Debug");
 	ImGui::End();
 }
-constexpr void GUI::RenderGeneral(f32 FrameRate) {
+void GUI::RenderGeneral(f32 FrameRate) {
 	ImGui::Begin("General", NULL, ImGuiWindowFlags_AlwaysAutoResize);
 
 	ImGui::TextColored(LabelColor, "FPS: ");
@@ -87,6 +97,12 @@ constexpr void GUI::RenderGeneral(f32 FrameRate) {
 
 	ImGui::ColorEdit3("ForeGround Color", reinterpret_cast<float *>(&ForeGroundColor));
 	ImGui::ColorEdit3("BackGround Color", reinterpret_cast<float *>(&BackGroundColor));
+
+	ImGui::SliderInt("Clock Speed (Hz)", &ClockSpeed, 60, 1000);
+
+	static i32 MaxTicks = MAX_TICKS_PER_FRAME;
+	ImGui::SliderInt("Max Ticks per Frame", &MaxTicks, 1, 50);
+	MAX_TICKS_PER_FRAME = MaxTicks;
 
 	ImGui::End();
 }

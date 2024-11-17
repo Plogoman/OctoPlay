@@ -19,23 +19,24 @@ static void GLFWErrorCallback(int Error, const char *Description) {
 i32 main(i32 args, char **argv) {
 	if (args < 2) {
 		std::cerr << "Usage: " << std::endl << argv[0] << " Chip 8 Program Path the ROM is in .ch8/.CH8" << std::endl;
-		return 1;
+		return EXIT_FAILURE;
 	}
 
 	srand(static_cast<unsigned>(time(nullptr)));
 
 	glfwSetErrorCallback(GLFWErrorCallback);
 	if (!glfwInit()) {
-		return 1;
+		return EXIT_FAILURE;
 	}
 
 	const char *GLSLVersion = "#version 150";
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
 
-	GLFWwindow *Window = glfwCreateWindow(1280, 720, "Chip 8", nullptr, nullptr);
+	GLFWwindow *Window = glfwCreateWindow(1920, 1080, "Chip 8", nullptr, nullptr);
 	if (Window == nullptr) {
-		return 1;
+		
+		return EXIT_FAILURE;
 	}
 
 	glfwMakeContextCurrent(Window);
@@ -62,10 +63,11 @@ i32 main(i32 args, char **argv) {
 	glBindTexture(GL_TEXTURE_2D, DisplayTexture);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 64, 32, 0, GL_RGB, GL_UNSIGNED_BYTE, DisplayPixels);
-
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, 64, 32, 0, GL_RGB, GL_UNSIGNED_BYTE, DisplayPixels);
 
 	ImGui::StyleColorsDark();
 	auto &Style = ImGui::GetStyle();
@@ -82,12 +84,17 @@ i32 main(i32 args, char **argv) {
 	Chip8 CoreInterpreter;
 	CoreInterpreter.Reset();
 
+	for (int i = 0; i < 64 * 32; ++i) {
+		CoreInterpreter.Display[i] = (i % 2 == 0);
+	}
+	CoreInterpreter.Redraw = true;
+
 	if (!CoreInterpreter.LoadProgram(argv[1])) {
 		std::cerr << "Unable to Load" << argv[1] << std::endl;
 		return -1;
 	}
 
-	GUI GUI(&CoreInterpreter, DisplayTexture, DisplayPixels);
+	GUI gui(&CoreInterpreter, DisplayTexture, DisplayPixels);
 
 	while (!glfwWindowShouldClose(Window)) {
 		glfwPollEvents();
@@ -96,7 +103,7 @@ i32 main(i32 args, char **argv) {
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-		GUI.Render();
+		gui.Render();
 
 		ImGui::Render();
 
@@ -114,6 +121,8 @@ i32 main(i32 args, char **argv) {
 			ImGui::RenderPlatformWindowsDefault();
 			glfwMakeContextCurrent(BackupCurrentContext);
 		}
+
+		glfwSwapBuffers(Window);
 	}
 
 	ImGui_ImplOpenGL3_Shutdown();
