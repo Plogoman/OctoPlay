@@ -18,6 +18,62 @@ constexpr void GUI::Tick() {
 }
 
 constexpr void GUI::RenderDisplay(float FrameRate) {
-	ImGui::Begin("Chip 8 Display", NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar);
-	ImGui::SetWindowSize(ImVec2(, ))
+	ImGui::Begin("Display", NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar);
+	ImGui::SetWindowSize(ImVec2(32 + (64 * DISPLAY_SCALE), 32 + (32 * DISPLAY_SCALE)));
+
+	if (SingleStepMode) {
+		SingleStepMode = false;
+		Tick();
+	}
+
+	for (int i = 0; i < (ClockSpeed / FrameRate); ++i) {
+		Tick();
+	}
+
+	auto CurrentTime = HighResolutionClock::now();
+	if ((CurrentTime - LastTimer).count() >= 16666666) {
+		CoreInterpreter->TickTimer();
+		LastTimer = CurrentTime;
+	}
+
+	if (CoreInterpreter->Redraw) {
+		CoreInterpreter->Redraw = false;
+
+		GLubyte ForeGround[3] = {
+			static_cast<GLubyte>(ForeGroundColor.x * 255),
+			static_cast<GLubyte>(ForeGroundColor.y * 255),
+			static_cast<GLubyte>(ForeGroundColor.z * 255)
+		};
+
+		GLubyte BackGround[3] = {
+			static_cast<GLubyte>(BackGroundColor.x * 255),
+			static_cast<GLubyte>(BackGroundColor.y * 255),
+			static_cast<GLubyte>(BackGroundColor.z * 255)
+		};
+
+		for (int i = 0; i < 64 * 32; ++i) {
+			auto SubPixel = CoreInterpreter->Display[i] ? ForeGround : BackGround;
+
+			for (int j = 0; j < 3; ++j) {
+				DisplayPixels[i * 3 + j] = SubPixel[j];
+			}
+		}
+
+		glBindTexture(GL_TEXTURE_2D, DisplayTexture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 64, 32, 0, GL_RGB, GL_UNSIGNED_BYTE, DisplayPixels);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+
+	ImGui::Image(reinterpret_cast<void *>(static_cast<intptr_t>(DisplayTexture)), ImVec2(64 * DISPLAY_SCALE, 32 * DISPLAY_SCALE));
+	ImGui::End();
 }
+constexpr void GUI::RenderGeneral(float FrameRate) {
+	ImGui::Begin("General", NULL, ImGuiWindowFlags_AlwaysAutoResize);
+
+	ImGui::TextColored(LabelColor, "FPS: ");
+	ImGui::SameLine();
+	ImGui::Text("%f", FrameRate);
+
+
+}
+
