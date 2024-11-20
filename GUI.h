@@ -7,7 +7,7 @@
 #include "Type.h"
 #include "Chip8.h"
 
-#define DISPLAY_SCALE 25
+#define DISPLAY_SCALE 30
 
 class GUI {
 	private:
