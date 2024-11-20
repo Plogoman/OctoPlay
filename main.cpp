@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <ctime>
 
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -32,15 +33,21 @@ i32 main(i32 args, char **argv) {
 	const char *GLSLVersion = "#version 150";
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	GLFWwindow *Window = glfwCreateWindow(1920, 1080, "Chip 8", nullptr, nullptr);
+	GLFWwindow *Window = glfwCreateWindow(2880, 1620, "Chip 8", nullptr, nullptr);
 	if (Window == nullptr) {
-		
+		glfwTerminate();
 		return EXIT_FAILURE;
 	}
 
 	glfwMakeContextCurrent(Window);
 	glfwSwapInterval(1);
+
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+		std::cerr << "Failed to initialize GLAD" << std::endl;
+		return -1;
+	}
 
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -48,26 +55,6 @@ i32 main(i32 args, char **argv) {
 	(void)IO;
 	IO.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 	IO.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-	IO.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-
-	GLubyte DisplayPixels[64 * 32 * 3];
-
-	for (int x = 0; x < 2048; ++x) {
-		DisplayPixels[x * 3] = 255;
-		DisplayPixels[x * 3 + 1] = 255;
-		DisplayPixels[x * 3 + 2] = 255;
-	}
-
-	GLuint DisplayTexture;
-	glGenTextures(1, &DisplayTexture);
-	glBindTexture(GL_TEXTURE_2D, DisplayTexture);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, 64, 32, 0, GL_RGB, GL_UNSIGNED_BYTE, DisplayPixels);
 
 	ImGui::StyleColorsDark();
 	auto &Style = ImGui::GetStyle();
@@ -79,15 +66,29 @@ i32 main(i32 args, char **argv) {
 	ImGui_ImplGlfw_InitForOpenGL(Window, true);
 	ImGui_ImplOpenGL3_Init(GLSLVersion);
 
+	GLubyte DisplayPixels[64 * 32 * 3];
+	for (int x = 0; x < 2048; ++x) {
+		DisplayPixels[x * 3 + 0] = 0;
+		DisplayPixels[x * 3 + 1] = 0;
+		DisplayPixels[x * 3 + 2] = 0;
+	}
+
+	GLuint DisplayTexture;
+	glGenTextures(1, &DisplayTexture);
+	glBindTexture(GL_TEXTURE_2D, DisplayTexture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); // Nearest for pixelated look
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // Prevent artifacts
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, 64, 32, 0, GL_RGB, GL_UNSIGNED_BYTE, DisplayPixels);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
 	auto ClearColor = ImVec4(0.039f, 0.039f, 0.039f, 1.0f);
 
 	Chip8 CoreInterpreter;
 	CoreInterpreter.Reset();
-
-	for (int i = 0; i < 64 * 32; ++i) {
-		CoreInterpreter.Display[i] = (i % 2 == 0);
-	}
-	CoreInterpreter.Redraw = true;
 
 	if (!CoreInterpreter.LoadProgram(argv[1])) {
 		std::cerr << "Unable to Load" << argv[1] << std::endl;
@@ -106,12 +107,12 @@ i32 main(i32 args, char **argv) {
 		gui.Render();
 
 		ImGui::Render();
-
 		i32 DisplayWidth, DisplayHeight;
 		glfwGetFramebufferSize(Window, &DisplayWidth, &DisplayHeight);
 		glViewport(0, 0, DisplayWidth, DisplayHeight);
 		glClearColor(ClearColor.x * ClearColor.w, ClearColor.y * ClearColor.w, ClearColor.z * ClearColor.w, ClearColor.w);
 		glClear(GL_COLOR_BUFFER_BIT);
+
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
 		// Update and Render Additional Platforms Windows
@@ -128,6 +129,8 @@ i32 main(i32 args, char **argv) {
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
+
+	glDeleteTextures(1, &DisplayTexture);
 
 	glfwDestroyWindow(Window);
 	glfwTerminate();

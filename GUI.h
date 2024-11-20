@@ -7,7 +7,7 @@
 #include "Type.h"
 #include "Chip8.h"
 
-#define DISPLAY_SCALE 20
+#define DISPLAY_SCALE 25
 
 class GUI {
 	private:
@@ -44,8 +44,8 @@ class GUI {
 
 		void Tick(); //Avoid Overhead & Compile Time Evaluation given Constant Args
 
-		void RenderDisplay(f32);
-		void RenderGeneral(f32);
+		void RenderDisplay(f32 FrameRate);
+		void RenderGeneral(f32 FrameRate);
 		//constexpr void RenderCPUState();
 		//constexpr void RenderDebug();
 		//constexpr void RenderKeyState();

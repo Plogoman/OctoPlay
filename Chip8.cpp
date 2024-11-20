@@ -9,8 +9,6 @@ static std::random_device rd;
 static std::mt19937 gen(rd());
 std::uniform_int_distribution<u8> dist(0, 255);
 
-u8 RandomValue = dist(gen);
-
 void Chip8::Reset() {
 	ProgramCounter = 0x200;
 	IndexRegister = 0;
@@ -31,6 +29,12 @@ void Chip8::Reset() {
 	for (i32 i = 0; i < 80; ++i) {
 		Memory[0x50 + i] = Font[i];
 	}
+
+	//Clear Stack
+	std::fill(Stack.begin(), Stack.end(), 0);
+
+	//Clear Key State
+	std::fill(KeyState.begin(), KeyState.end(), false);
 }
 bool Chip8::LoadProgram(const String &File) {
 	InputFileStream InputFile(File, std::ios::binary | std::ios::ate);
@@ -43,25 +47,49 @@ bool Chip8::LoadProgram(const String &File) {
 	InputFile.seekg(0, std::ios::beg);
 
 	if (size > (4096 - 512)) {
-		std::cerr << "ROM Too Large!" << std::endl;
+		std::cerr << "ROM Too Large! Size: " << size << " bytes." << std::endl;
+		InputFile.close();
 		return false;
 	}
 
 	if (!InputFile.read(reinterpret_cast<char*>(&Memory[0x200]), size)) {
 		std::cerr << "Failed to Read ROM Data" << std::endl;
+		InputFile.close();
 		return false;
 	}
 
 	InputFile.close();
+
+	// Debug: Print confirmation and size
+	std::cout << "ROM loaded successfully. Size: " << size << " bytes." << std::endl;
+
+	// Optional: Print the first few opcodes
+	std::cout << "First few opcodes:" << std::endl;
+	for (std::streamsize i = 0; i < size && i < 10; i += 2) {
+		u16 opcode = (Memory[0x200 + i] << 8) | Memory[0x200 + i + 1];
+		std::cout << "0x" << std::hex << opcode << " ";
+	}
+	std::cout << std::endl;
+
 	return true;
 }
 void Chip8::StackPush(u16 Data) {
+	if (StackPointer >= Stack.size()) {
+		std::cerr << "Stack Overflow!" << std::endl;
+		// Handle error
+		return;
+	}
 	Stack[StackPointer] = Data;
 	StackPointer++;
 }
 u16 Chip8::StackPop() {
+	if (StackPointer == 0) {
+		std::cerr << "Stack Underflow!" << std::endl;
+		// Handle error
+		return 0;
+	}
 	StackPointer--;
-	i32 Data = Stack[StackPointer];
+	u16 Data = Stack[StackPointer];
 	return Data;
 }
 void Chip8::Tick() {
@@ -70,8 +98,6 @@ void Chip8::Tick() {
 	}
 
 	OperationCode = Memory[ProgramCounter] << 8 | Memory[ProgramCounter + 1];
-	ProgramCounter += 2;
-
 
 	bool Invalid = false;
 
@@ -94,7 +120,6 @@ void Chip8::Tick() {
 				//0x00EE Return from Subroutine
 				case 0x00EE: {
 					ProgramCounter = StackPop();
-					ProgramCounter += 2;
 					break;
 				}
 
@@ -112,32 +137,35 @@ void Chip8::Tick() {
 		}
 		//2NNN Call to NNN
 		case 0x2000: {
-			StackPush(ProgramCounter);
+			StackPush(ProgramCounter + 2);
 			ProgramCounter = OperationCode & 0x0FFF;
 			break;
 		}
 		//3XNN Skip Next if NN == vX
 		case 0x3000: {
 			if (Register[(OperationCode & 0x0F00) >> 8] == (OperationCode & 0x00FF)) {
+				ProgramCounter += 4;
+			} else {
 				ProgramCounter += 2;
 			}
-			ProgramCounter += 2;
 			break;
 		}
 		//4XNN Skip Next if NN != vX
 		case 0x4000: {
 			if (Register[(OperationCode & 0x0F00) >> 8] != (OperationCode & 0x00FF)) {
+				ProgramCounter += 4;
+			} else {
 				ProgramCounter += 2;
 			}
-			ProgramCounter += 2;
 			break;
 		}
 		//5XY0 Skip Next if vX == vY
 		case 0x5000: {
 			if (Register[(OperationCode & 0x0F00) >> 8] == Register[(OperationCode & 0x00F0) >> 4]) {
+				ProgramCounter += 4;
+			} else {
 				ProgramCounter += 2;
 			}
-			ProgramCounter += 2;
 			break;
 		}
 		//6XNN Set Register X to NN
@@ -240,9 +268,10 @@ void Chip8::Tick() {
 		//9XY0 Skip Next if vX != vY
 		case 0x9000: {
 			if (Register[(OperationCode & 0x0F00) >> 8] != Register[(OperationCode & 0x00F0) >> 4]) {
+				ProgramCounter += 4;
+			} else {
 				ProgramCounter += 2;
 			}
-			ProgramCounter += 2;
 			break;
 		}
 		//ANNN Set I to NNN
@@ -258,22 +287,29 @@ void Chip8::Tick() {
 		}
 		//CXNN Set vX to rand & NN
 		case 0xC000: {
-			Register[(OperationCode & 0x0F00) >> 8] = RandomValue & (OperationCode & 0x00FF);
+			Register[(OperationCode & 0x0F00) >> 8] = (rand() % 256) & (OperationCode & 0x00FF);
 			ProgramCounter += 2;
 			break;
 		}
 		//DXYN Display X, Y, N
 		case 0xD000: {
-			u8 x = Register[(OperationCode & 0x0F00) >> 8];
-			u8 y = Register[(OperationCode & 0x00F0) >> 4];
+			u8 X = Register[(OperationCode & 0x0F00) >> 8];
+			u8 Y = Register[(OperationCode & 0x00F0) >> 4];
 			u8 height = OperationCode & 0x000F;
 			Register[0xF] = 0;
 
-			for (i32 yLine = 0; yLine < height; ++yLine) {
-				u8 pixel = Memory[IndexRegister + yLine];
-				for (i32 xLine = 0; xLine < 8; ++xLine) {
-					if ((pixel & (0x80 >> xLine)) != 0) {
-						u16 index = ((x + xLine) % 64) + (((y + yLine) % 32) * 64);
+			for (int yline = 0; yline < height; yline++) {
+				if (IndexRegister + yline >= Memory.size()) {
+					std::cerr << "Index Register Out of Bounds during Draw Opcode." << std::endl;
+					break;
+				}
+				u8 pixel = Memory[IndexRegister + yline];
+				for (int xline = 0; xline < 8; xline++) {
+					if ((pixel & (0x80 >> xline)) != 0) {
+						int xpos = (X + xline) % 64;
+						int ypos = (Y + yline) % 32;
+						int index = xpos + (ypos * 64);
+
 						if (Display[index]) {
 							Register[0xF] = 1;
 						}
@@ -282,6 +318,7 @@ void Chip8::Tick() {
 				}
 			}
 			Redraw = true;
+			ProgramCounter += 2;
 			break;
 		}
 		case 0xE000: {
@@ -289,17 +326,19 @@ void Chip8::Tick() {
 				//EX9E Skip an Instruction if Key Stored in vX is True
 				case 0x009E: {
 					if (KeyState[Register[(OperationCode & 0x0F00) >> 8]]) {
+						ProgramCounter += 4;
+					} else {
 						ProgramCounter += 2;
 					}
-					ProgramCounter += 2;
 					break;
 				}
 				//EXA1 Skip an Instuction if Key Stored in vX is False
 				case 0x00A1: {
 					if (!KeyState[Register[(OperationCode & 0x0F00) >> 8]]) {
+						ProgramCounter += 4;
+					} else {
 						ProgramCounter += 2;
 					}
-					ProgramCounter += 2;
 					break;
 				}
 
@@ -325,15 +364,15 @@ void Chip8::Tick() {
 
 					for (i32 i = 0; i < 16; ++i) {
 						if (KeyState[i]) {
-							IsKeyPressed = true;
 							Register[(OperationCode & 0x0F00) >> 8] = i;
+							IsKeyPressed = true;
+							break;
 						}
 					}
 
 					if (!IsKeyPressed) {
 						return;
 					}
-
 					ProgramCounter += 2;
 					break;
 				}
